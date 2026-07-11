@@ -1,0 +1,591 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0b09">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>lvl up</title>
+<style>
+  :root{ /* палитра «дорого»: графит + старое золото */
+    --bg:#0c0b09; --panel:#121110; --border:#262319;
+    --acc:#c9a961; --acc-dim:#6e5c33; --text:#d9d2c2; --muted:#6e675a;
+    --hot:#e8d5a3; --red:#c25a6e; --shadow:0 0 14px rgba(201,169,97,.18);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:"Cascadia Mono","JetBrains Mono",Consolas,monospace;
+    font-size:15px; line-height:1.5; min-height:100%; overflow-x:hidden}
+  body::after{ /* scanlines */
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:99;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px);
+  }
+  #app{max-width:560px;margin:0 auto;padding:12px 14px calc(24px + env(safe-area-inset-bottom))}
+
+  /* ---------- header ---------- */
+  .hdr{border:1px solid var(--border);background:var(--panel);padding:10px 12px;margin-bottom:12px}
+  .hdr .title{color:var(--acc);font-weight:bold;letter-spacing:1px}
+  .hdr .title .blink{animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .stat-line{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .rank{color:var(--hot)}
+  .xpbar{margin-top:8px;height:14px;border:1px solid var(--acc-dim);position:relative;overflow:hidden}
+  .xpbar .fill{height:100%;background:linear-gradient(90deg,var(--acc-dim),var(--acc));
+    width:0%;transition:width .9s cubic-bezier(.22,1,.36,1);box-shadow:var(--shadow)}
+  .xpbar .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:#f3ead5;text-shadow:0 0 4px #000;mix-blend-mode:screen}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs button{flex:1;background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    font:inherit;padding:9px 4px;cursor:pointer}
+  .tabs button.on{color:var(--acc);border-color:var(--acc-dim);box-shadow:var(--shadow)}
+  .tabs button.slap-tab.on{color:var(--red);border-color:var(--red);box-shadow:0 0 12px rgba(194,90,110,.25)}
+
+  .section-h{color:var(--muted);margin:14px 0 8px}
+  .section-h b{color:var(--acc);font-weight:normal}
+
+  /* ---------- tracks ---------- */
+  .track{border:1px solid var(--border);background:var(--panel);margin-bottom:8px}
+  .track .row{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer}
+  .track .nm{flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .track .meta{color:var(--muted);font-size:12px;white-space:nowrap}
+  .track .meta .hot{color:var(--hot)}
+  .winbtn{background:#1a160e;border:1px solid var(--acc-dim);color:var(--acc);
+    font:inherit;font-weight:bold;padding:9px 14px;cursor:pointer;min-width:58px}
+  .winbtn:active{background:var(--acc-dim);color:#0c0b09}
+  .winbtn:disabled{opacity:.35;border-color:var(--border);color:var(--muted)}
+  .track .details{border-top:1px dashed var(--border);padding:8px 12px;font-size:13px;color:var(--muted);display:none}
+  .track.open .details{display:block}
+  .details .kv{display:flex;justify-content:space-between}
+  .details .kv span:last-child{color:var(--text)}
+  .del{color:var(--red);background:none;border:1px dashed var(--red);font:inherit;font-size:12px;
+    padding:4px 10px;margin-top:8px;cursor:pointer;opacity:.75}
+
+  /* ---------- add track (inline) ---------- */
+  .addbtn{width:100%;background:none;border:1px dashed var(--border);color:var(--muted);
+    font:inherit;padding:10px;cursor:pointer;margin-bottom:8px}
+  .addbtn:hover{color:var(--acc);border-color:var(--acc-dim)}
+  .addform{border:1px dashed var(--acc-dim);background:var(--panel);padding:12px;margin-bottom:8px;display:none}
+  .addform.open{display:block}
+  .addform label{display:block;color:var(--muted);font-size:12px;margin:8px 0 4px}
+  .addform input[type=text]{width:100%;background:#0a0908;border:1px solid var(--border);
+    color:var(--acc);font:inherit;padding:8px}
+  .addform input[type=text]:focus{outline:none;border-color:var(--acc-dim)}
+  .typebtns{display:flex;gap:8px}
+  .typebtns button{flex:1;background:none;border:1px solid var(--border);color:var(--muted);
+    font:inherit;font-size:12px;padding:8px 4px;cursor:pointer}
+  .typebtns button.on{color:var(--acc);border-color:var(--acc-dim)}
+  .formact{display:flex;gap:8px;margin-top:12px}
+  .formact button{flex:1;font:inherit;padding:9px;cursor:pointer;border:1px solid var(--acc-dim);
+    background:#1a160e;color:var(--acc)}
+  .formact button.cancel{border-color:var(--border);background:none;color:var(--muted)}
+
+  /* ---------- log ---------- */
+  #log{border:1px solid var(--border);background:#0a0908;padding:10px 12px;min-height:90px;
+    max-height:220px;overflow-y:auto;font-size:13px}
+  #log .ln{white-space:pre-wrap;word-break:break-word}
+  #log .ln.win{color:var(--acc)}
+  #log .ln.lvl{color:var(--hot)}
+  #log .ln.sys{color:var(--muted)}
+  .cursor{display:inline-block;width:8px;background:var(--acc);animation:blink 1s steps(1) infinite}
+
+  /* ---------- slap ---------- */
+  #slapScreen{border:1px solid var(--red);background:#140b0d;padding:14px;min-height:300px}
+  #slapText{white-space:pre-wrap;word-break:break-word;color:#d8bfc4;font-size:14px}
+  #slapText .hi{color:var(--red)}
+  #slapText .num{color:var(--hot)}
+  #slapText .ok{color:var(--acc)}
+  .slapclose{margin-top:16px;width:100%;background:none;border:1px solid var(--red);color:var(--red);
+    font:inherit;padding:12px;cursor:pointer;display:none}
+
+  /* ---------- cfg ---------- */
+  .cfgbtn{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    font:inherit;padding:11px;cursor:pointer;margin-bottom:8px;text-align:left}
+  .cfgbtn.danger{color:var(--red);border-color:#3a2026}
+  .cfg-note{color:var(--muted);font-size:12px;margin-top:14px}
+
+  /* ---------- quiz ---------- */
+  #quiz{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none}
+  #quiz.open{display:block}
+  .qwrap{max-width:560px;margin:0 auto;padding:24px 16px}
+  .qhead{color:var(--acc);margin-bottom:6px}
+  .qprog{color:var(--muted);font-size:12px;margin-bottom:18px}
+  .qtext{color:var(--text);margin-bottom:16px;min-height:44px;white-space:pre-wrap}
+  .qans button{display:block;width:100%;background:var(--panel);border:1px solid var(--border);
+    color:var(--text);font:inherit;text-align:left;padding:12px;margin-bottom:8px;cursor:pointer}
+  .qans button:active{border-color:var(--acc-dim);color:var(--acc)}
+  #qResult{white-space:pre-wrap;color:var(--text)}
+  #qResult .verdict{color:var(--hot)}
+  #qStart{display:none;width:100%;margin-top:20px;background:#1a160e;border:1px solid var(--acc-dim);
+    color:var(--acc);font:inherit;font-weight:bold;padding:14px;cursor:pointer}
+
+  /* ---------- level up overlay ---------- */
+  #lvlOverlay{position:fixed;inset:0;background:rgba(10,9,7,.93);z-index:60;display:none;
+    align-items:center;justify-content:center;flex-direction:column;text-align:center}
+  #lvlOverlay.open{display:flex}
+  .lvl-big{color:var(--acc);font-weight:bold;font-size:34px;letter-spacing:4px;
+    text-shadow:0 0 18px var(--acc);animation:glitch .35s steps(2) infinite}
+  @keyframes glitch{
+    0%{transform:translate(0)} 25%{transform:translate(-2px,1px) skewX(2deg)}
+    50%{transform:translate(2px,-1px)} 75%{transform:translate(-1px,-1px) skewX(-2deg)} 100%{transform:translate(0)}
+  }
+  .lvl-sub{color:var(--hot);margin-top:12px;font-size:18px}
+  .lvl-hint{color:var(--muted);margin-top:26px;font-size:12px}
+
+  /* burst particles */
+  .pcl{position:fixed;pointer-events:none;z-index:70;color:var(--acc);font-weight:bold}
+
+  .flash{animation:flashbg .5s ease-out}
+  @keyframes flashbg{0%{background:#262012}100%{background:var(--bg)}}
+</style>
+
+<div id="app">
+  <div class="hdr">
+    <div class="title">lvl up<span class="blink">_</span> <span style="color:var(--muted);font-size:12px">// копилка доказательств</span></div>
+    <div class="stat-line">
+      <span>уровень: <b id="hLvl" style="color:var(--acc)">1</b> <span class="rank" id="hRank">[NPC]</span></span>
+      <span style="color:var(--muted)" id="hDays"></span>
+    </div>
+    <div class="xpbar"><div class="fill" id="xpFill"></div><div class="num" id="xpNum"></div></div>
+  </div>
+
+  <div class="tabs">
+    <button id="tabWins" class="on">wins</button>
+    <button id="tabSlap" class="slap-tab">slap</button>
+    <button id="tabCfg">cfg</button>
+  </div>
+
+  <!-- ======== WINS ======== -->
+  <div id="pageWins">
+    <div class="section-h">// <b>треки</b> — тапни [+1], когда сделал дело</div>
+    <div id="trackList"></div>
+    <button class="addbtn" id="addBtn">+ новый трек</button>
+    <div class="addform" id="addForm">
+      <label>название</label>
+      <input type="text" id="afName" maxlength="40" placeholder="зал / ютуб / речь и голос...">
+      <label>тип</label>
+      <div class="typebtns">
+        <button id="afRep" class="on">повторение (зал, проект)</button>
+        <button id="afDays">непрерывность (не курю)</button>
+      </div>
+      <div class="formact">
+        <button id="afOk">создать</button>
+        <button class="cancel" id="afCancel">отмена</button>
+      </div>
+    </div>
+    <div class="section-h">// <b>лог</b></div>
+    <div id="log"></div>
+  </div>
+
+  <!-- ======== SLAP ======== -->
+  <div id="pageSlap" style="display:none">
+    <div class="section-h" style="color:var(--red)">// режим пощёчины</div>
+    <div id="slapScreen">
+      <div id="slapText"></div>
+      <button class="slapclose" id="slapClose">[ понял. встал и пошёл ]</button>
+    </div>
+  </div>
+
+  <!-- ======== CFG ======== -->
+  <div id="pageCfg" style="display:none">
+    <div class="section-h">// <b>настройки</b></div>
+    <button class="cfgbtn" id="btnExport">&gt; экспорт данных (json)</button>
+    <button class="cfgbtn" id="btnImport">&gt; импорт данных</button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+    <button class="cfgbtn danger" id="btnReset">&gt; полный сброс (стереть всё)</button>
+    <div class="cfg-note" id="cfgInfo"></div>
+  </div>
+</div>
+
+<!-- ======== QUIZ ======== -->
+<div id="quiz">
+  <div class="qwrap">
+    <div class="qhead">lvl up // калибровка</div>
+    <div class="qprog" id="qProg"></div>
+    <div class="qtext" id="qText"></div>
+    <div class="qans" id="qAns"></div>
+    <div id="qResult"></div>
+    <button id="qStart">[ начать прокачку ]</button>
+  </div>
+</div>
+
+<!-- ======== LEVEL UP ======== -->
+<div id="lvlOverlay">
+  <div class="lvl-big">LEVEL UP</div>
+  <div class="lvl-sub" id="lvlSub"></div>
+  <div class="lvl-hint">[ тапни, чтобы продолжить ]</div>
+</div>
+
+<script>
+'use strict';
+/* ================= storage adapter (фаза 2: заменить на sync с VPS) ================= */
+const store = {
+  key: 'lvlup.v1',
+  load(){ try{ return JSON.parse(localStorage.getItem(this.key)); }catch(e){ return null; } },
+  save(s){ localStorage.setItem(this.key, JSON.stringify(s)); }
+};
+
+/* ================= xp / levels ================= */
+const costFor = l => 100 + (l-1)*40;            // xp с уровня l на l+1
+function xpAtLevel(l){ let x=0; for(let i=1;i<l;i++) x+=costFor(i); return x; }
+function levelInfo(xp){
+  let l=1, rem=xp;
+  while(rem >= costFor(l)){ rem-=costFor(l); l++; }
+  return { level:l, into:rem, need:costFor(l) };
+}
+const RANKS = [[1,'NPC'],[3,'щегол'],[5,'юнит'],[8,'боец'],[11,'зверь'],[15,'машина'],[20,'терминатор'],[25,'финальный босс']];
+const rankFor = l => { let r='NPC'; for(const [m,n] of RANKS) if(l>=m) r=n; return r; };
+
+/* ================= state ================= */
+let S = store.load();
+const save = () => store.save(S);
+const dayKey = ts => { const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const today = () => dayKey(Date.now());
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ================= streaks ================= */
+function streakOf(track){ // текущая серия дней подряд (сегодня или вчера — не рвёт)
+  const days = new Set(track.wins.map(dayKey));
+  if(track.type==='days') return dayCount(track);
+  let s=0; const d=new Date();
+  if(!days.has(dayKey(d.getTime()))) d.setDate(d.getDate()-1); // сегодня ещё не было — считаем от вчера
+  while(days.has(dayKey(d.getTime()))){ s++; d.setDate(d.getDate()-1); }
+  return s;
+}
+function bestStreakOf(track){
+  const keys=[...new Set(track.wins.map(dayKey))].sort();
+  let best=0,cur=0,prev=null;
+  for(const k of keys){
+    if(prev){ const p=new Date(prev), c=new Date(k); cur = (c-p===86400000) ? cur+1 : 1; }
+    else cur=1;
+    best=Math.max(best,cur); prev=k;
+  }
+  return best;
+}
+const dayCount = t => Math.floor((Date.now()-t.startDate)/86400000)+1; // для «непрерывности»
+
+/* ================= log ================= */
+const logBox = document.getElementById('log');
+function renderLog(){
+  logBox.innerHTML='';
+  (S.log||[]).slice(-40).forEach(e=>{
+    const d=document.createElement('div'); d.className='ln '+(e.k||'sys'); d.textContent=e.t; logBox.appendChild(d);
+  });
+  logBox.scrollTop=logBox.scrollHeight;
+}
+function typeLine(text, kind){  // печатающаяся строка — дофаминовый момент
+  S.log.push({t:text,k:kind}); if(S.log.length>200) S.log=S.log.slice(-200); save();
+  const d=document.createElement('div'); d.className='ln '+kind;
+  const cur=document.createElement('span'); cur.className='cursor'; cur.textContent=' ';
+  logBox.appendChild(d); d.appendChild(cur);
+  let i=0;
+  const t=setInterval(()=>{
+    if(i>=text.length){ clearInterval(t); cur.remove(); return; }
+    d.insertBefore(document.createTextNode(text[i++]),cur);
+    logBox.scrollTop=logBox.scrollHeight;
+  },18);
+}
+
+/* ================= header / xp bar ================= */
+function renderHeader(animate){
+  const li=levelInfo(S.xp);
+  document.getElementById('hLvl').textContent=li.level;
+  document.getElementById('hRank').textContent='['+rankFor(li.level)+']';
+  const days=Math.floor((Date.now()-S.created)/86400000)+1;
+  document.getElementById('hDays').textContent='день в системе: '+days;
+  const pct=Math.min(100, li.into/li.need*100);
+  const fill=document.getElementById('xpFill');
+  if(!animate) fill.style.transition='none';
+  fill.style.width=pct+'%';
+  if(!animate) requestAnimationFrame(()=>fill.style.transition='');
+  document.getElementById('xpNum').textContent=li.into+' / '+li.need+' xp';
+}
+
+/* ================= xp gain + level up ================= */
+function addXp(amount, logText){
+  const before=levelInfo(S.xp).level;
+  S.xp+=amount; save();
+  const after=levelInfo(S.xp).level;
+  typeLine(logText,'win');
+  renderHeader(true);
+  if(after>before){
+    setTimeout(()=>{
+      typeLine('> LEVEL UP: '+before+' -> '+after+' ['+rankFor(after)+']','lvl');
+      document.getElementById('lvlSub').textContent='уровень '+after+' // '+rankFor(after);
+      document.getElementById('lvlOverlay').classList.add('open');
+    },700);
+  }
+}
+document.getElementById('lvlOverlay').onclick=()=>document.getElementById('lvlOverlay').classList.remove('open');
+
+/* ================= burst particles ================= */
+const CHARS=['+','*','✦','#','$','↑','%'];
+function burst(x,y){
+  for(let i=0;i<14;i++){
+    const p=document.createElement('span'); p.className='pcl';
+    p.textContent=CHARS[Math.floor(Math.random()*CHARS.length)];
+    p.style.left=x+'px'; p.style.top=y+'px';
+    if(Math.random()<.3) p.style.color='var(--hot)';
+    document.body.appendChild(p);
+    const a=Math.random()*Math.PI*2, r=50+Math.random()*80;
+    p.animate([
+      {transform:'translate(0,0) scale(1)',opacity:1},
+      {transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r-30}px) scale(.4)`,opacity:0}
+    ],{duration:650+Math.random()*350,easing:'cubic-bezier(.17,.67,.4,1)'}).onfinish=()=>p.remove();
+  }
+}
+
+/* ================= tracks ================= */
+const trackList=document.getElementById('trackList');
+function renderTracks(){
+  trackList.innerHTML='';
+  if(!S.tracks.length){
+    const d=document.createElement('div'); d.className='cfg-note';
+    d.textContent='треков пока нет. создай первый: «+ новый трек» — зал, проект, что угодно.';
+    trackList.appendChild(d); return;
+  }
+  S.tracks.forEach(tr=>{
+    const el=document.createElement('div'); el.className='track'; el.dataset.id=tr.id;
+    const row=document.createElement('div'); row.className='row';
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent='> '+tr.name;
+    const meta=document.createElement('span'); meta.className='meta';
+    const btn=document.createElement('button'); btn.className='winbtn';
+    if(tr.type==='days'){
+      meta.innerHTML='день <span class="hot">'+dayCount(tr)+'</span>';
+      btn.textContent='отметить';
+      const done=tr.checkins.includes(today());
+      btn.disabled=done; if(done) btn.textContent='есть ✓';
+      btn.onclick=e=>{e.stopPropagation(); checkinDays(tr,btn);};
+    }else{
+      const st=streakOf(tr);
+      meta.innerHTML='всего '+tr.wins.length+(st>1?' · стрик <span class="hot">'+st+'</span>':'');
+      btn.textContent='+1';
+      btn.onclick=e=>{e.stopPropagation(); recordWin(tr,btn);};
+    }
+    row.append(nm,meta,btn);
+    const det=document.createElement('div'); det.className='details';
+    row.onclick=()=>{el.classList.toggle('open'); if(el.classList.contains('open')) fillDetails(det,tr);};
+    el.append(row,det);
+    trackList.appendChild(el);
+  });
+}
+function fillDetails(det,tr){
+  det.innerHTML='';
+  const rows = tr.type==='days'
+    ? [['тип','непрерывность'],['начало',new Date(tr.startDate).toLocaleDateString('ru')],['дней подряд',dayCount(tr)],['отметок',tr.checkins.length]]
+    : [['тип','повторение'],['всего побед',tr.wins.length],['текущий стрик',streakOf(tr)+' дн.'],['лучший стрик',bestStreakOf(tr)+' дн.'],
+       ['последняя',tr.wins.length?new Date(tr.wins[tr.wins.length-1]).toLocaleString('ru'):'—']];
+  rows.forEach(([k,v])=>{
+    const d=document.createElement('div'); d.className='kv';
+    d.innerHTML='<span>'+k+':</span><span>'+v+'</span>'; det.appendChild(d);
+  });
+  const del=document.createElement('button'); del.className='del'; del.textContent='[x] удалить трек';
+  del.onclick=e=>{e.stopPropagation();
+    if(confirm('Удалить «'+tr.name+'» со всей историей?')){
+      S.tracks=S.tracks.filter(t=>t.id!==tr.id); save(); renderTracks();
+      typeLine('> трек удалён: '+tr.name,'sys');
+    }};
+  det.appendChild(del);
+}
+function recordWin(tr,btn){
+  tr.wins.push(Date.now());
+  const st=streakOf(tr);
+  const gained=10+Math.min(st*2,20);
+  save();
+  const r=btn.getBoundingClientRect(); burst(r.left+r.width/2,r.top+r.height/2);
+  document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
+  addXp(gained,'> win: '+tr.name+' [+'+gained+'xp]'+(st>1?' streak: '+st:''));
+  renderTracks();
+}
+function checkinDays(tr,btn){
+  if(tr.checkins.includes(today())) return;
+  tr.checkins.push(today());
+  const dc=dayCount(tr);
+  let gained=15, extra='';
+  if(dc%30===0){gained+=100; extra=' // '+dc+' дней. железно. +100 бонус';}
+  else if(dc%10===0){gained+=40; extra=' // круглая дата, +40 бонус';}
+  save();
+  const r=btn.getBoundingClientRect(); burst(r.left+r.width/2,r.top+r.height/2);
+  addXp(gained,'> '+tr.name+': день '+dc+' [+'+gained+'xp]'+extra);
+  renderTracks();
+}
+
+/* ================= add track form ================= */
+const addForm=document.getElementById('addForm');
+let afType='rep';
+document.getElementById('addBtn').onclick=()=>{addForm.classList.toggle('open'); document.getElementById('afName').focus();};
+document.getElementById('afCancel').onclick=()=>addForm.classList.remove('open');
+document.getElementById('afRep').onclick=e=>{afType='rep'; e.target.classList.add('on'); document.getElementById('afDays').classList.remove('on');};
+document.getElementById('afDays').onclick=e=>{afType='days'; e.target.classList.add('on'); document.getElementById('afRep').classList.remove('on');};
+document.getElementById('afOk').onclick=()=>{
+  const name=document.getElementById('afName').value.trim();
+  if(!name) return;
+  const tr={id:uid(),name,type:afType,created:Date.now(),wins:[]};
+  if(afType==='days'){tr.startDate=Date.now(); tr.checkins=[];}
+  S.tracks.push(tr); save();
+  document.getElementById('afName').value=''; addForm.classList.remove('open');
+  typeLine('> новый трек: '+name+(afType==='days'?' [счётчик дней]':''),'sys');
+  renderTracks();
+};
+
+/* ================= tabs ================= */
+const pages={Wins:'pageWins',Slap:'pageSlap',Cfg:'pageCfg'};
+function showTab(name){
+  for(const k in pages) document.getElementById(pages[k]).style.display = k===name?'':'none';
+  ['Wins','Slap','Cfg'].forEach(k=>document.getElementById('tab'+k).classList.toggle('on',k===name));
+  if(name==='Slap') runSlap();
+  if(name==='Cfg') renderCfg();
+}
+document.getElementById('tabWins').onclick=()=>showTab('Wins');
+document.getElementById('tabSlap').onclick=()=>showTab('Slap');
+document.getElementById('tabCfg').onclick=()=>showTab('Cfg');
+
+/* ================= slap mode ================= */
+const SLAP_OUTRO=[
+'сядешь ныть — сольёшь всё это в унитаз.\nвстал и пошёл.',
+'нытик не набил бы и половины этого.\nа ты набил. делай выводы.',
+'прогресс не врёт. врёт голос в голове.\nзаткни его следующей победой.',
+'ты уже не тот, кто это начинал.\nне смей возвращаться назад.'
+];
+let slapTimer=null;
+function runSlap(){
+  const box=document.getElementById('slapText');
+  const closeBtn=document.getElementById('slapClose');
+  box.innerHTML=''; closeBtn.style.display='none';
+  if(slapTimer) clearInterval(slapTimer);
+
+  const li=levelInfo(S.xp);
+  const totalWins=S.tracks.reduce((a,t)=>a+(t.wins||[]).length+(t.checkins||[]).length,0);
+  const activeDays=new Set(S.tracks.flatMap(t=>[...(t.wins||[]).map(dayKey),...(t.checkins||[])])).size;
+  let best={n:0,name:''};
+  S.tracks.forEach(t=>{const b=t.type==='days'?dayCount(t):bestStreakOf(t); if(b>best.n) best={n:b,name:t.name};});
+  const sysDays=Math.floor((Date.now()-S.created)/86400000)+1;
+
+  let lines;
+  if(totalWins===0){
+    lines=['> инициализация пощёчины...','',
+      '<span class="hi">фактов пока ноль.</span>','',
+      'нечем тебя даже ударить — ты ещё ничего не записал.',
+      'иди сделай хоть одну победу и вернись.','',
+      '<span class="hi">это первая пощёчина: за пустоту.</span>'];
+  }else{
+    lines=['> инициализация пощёчины...','','<span class="hi">так, стоп. смотри сюда, нытик. факты:</span>','',
+      '  побед зафиксировано: <span class="num">'+totalWins+'</span>',
+      '  активных дней: <span class="num">'+activeDays+'</span>',
+      best.n>1?'  лучшая серия: <span class="num">'+best.n+'</span> ('+best.name+')':null,
+      '  уровень: <span class="num">'+li.level+'</span> <span class="ok">['+rankFor(li.level)+']</span>'+(S.startLevel&&li.level>S.startLevel?' — стартовал с '+S.startLevel:''),
+      '  дней в системе: <span class="num">'+sysDays+'</span>','',
+      '<span class="hi">'+SLAP_OUTRO[Math.floor(Math.random()*SLAP_OUTRO.length)].replace('\n','</span>\n<span class="hi">')+'</span>'
+    ].filter(x=>x!==null);
+  }
+  // печать построчно
+  let i=0;
+  slapTimer=setInterval(()=>{
+    if(i>=lines.length){clearInterval(slapTimer); closeBtn.style.display='block'; return;}
+    const d=document.createElement('div'); d.innerHTML=lines[i++]||'&nbsp;'; box.appendChild(d);
+  },260);
+  closeBtn.onclick=()=>showTab('Wins');
+}
+
+/* ================= cfg ================= */
+function renderCfg(){
+  const li=levelInfo(S.xp);
+  document.getElementById('cfgInfo').textContent=
+    'данные лежат локально на этом устройстве (localStorage). '+
+    'xp всего: '+S.xp+' // уровень '+li.level+' // треков: '+S.tracks.length+
+    ' // синхронизация с сервером — фаза 2.';
+}
+document.getElementById('btnExport').onclick=()=>{
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='lvlup-backup-'+today()+'.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+document.getElementById('btnImport').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const data=JSON.parse(r.result);
+      if(typeof data.xp!=='number'||!Array.isArray(data.tracks)) throw 0;
+      S=data; save(); renderAll(); showTab('Wins'); typeLine('> импорт данных: ок','sys');
+    }catch(_){ alert('файл не похож на бэкап lvl up'); } };
+  r.readAsText(f);
+};
+document.getElementById('btnReset').onclick=()=>{
+  if(confirm('Стереть ВСЁ: уровень, треки, историю?') && confirm('Точно? Это необратимо.')){
+    localStorage.removeItem(store.key); location.reload();
+  }
+};
+
+/* ================= quiz ================= */
+const QUESTIONS=[
+ {q:'зал / спорт / движение — как часто?',a:['никак. диван — мой дом','раз в месяц вспоминаю','1-2 раза в неделю','3+ раз, система']},
+ {q:'вредные привычки (курение, бухло, залипание)?',a:['полный набор, ежедневно','есть, борюсь с переменным успехом','почти избавился / редко','чист']},
+ {q:'есть проект / дело, которое реально двигаешь?',a:['только мечтаю','начинал, забросил','двигаю, но рывками','двигаю постоянно']},
+ {q:'режим сна?',a:['4 утра, залипание, зомби','плавает как хочет','стараюсь держать','железный режим']},
+ {q:'учишься чему-то новому?',a:['зачем, я всё знаю','смотрю видосики, не применяю','учусь, когда припрёт','постоянно качаю скиллы']},
+ {q:'доводишь начатое до конца?',a:['у меня кладбище брошенных дел','50/50','чаще да','если взялся — добью']}
+];
+const VERDICTS={ // тексты должны совпадать с rankFor(startLevel)
+ 1:'диагноз: полный NPC.\nходячий фон чужих историй.\nно ты сюда зашёл — значит, ещё не всё потеряно.',
+ 2:'диагноз: NPC с проблесками.\nжелание есть, дисциплины нет.\nэто лечится. здесь.',
+ 3:'диагноз: щегол.\nчто-то уже делаешь, но хаотично.\nпора собрать это в систему.',
+ 4:'диагноз: щегол с характером.\nбаза появляется. вопрос только в постоянстве.',
+ 5:'диагноз: юнит.\nты двигаешься лучше большинства.\nтеперь — фокус и стрики.',
+ 6:'диагноз: юнит на разгоне.\nсерьёзно? тогда докажи это делом, а не тестом.',
+ 7:'диагноз: юнит с потолком выше крыши.\nлибо ты приукрасил, либо приложение тебе нужно чисто для истории.\nпосмотрим.'
+};
+function runQuiz(){
+  document.getElementById('quiz').classList.add('open');
+  let idx=0, score=0;
+  const qText=document.getElementById('qText'), qAns=document.getElementById('qAns'), qProg=document.getElementById('qProg');
+  function ask(){
+    if(idx>=QUESTIONS.length) return finish();
+    const Q=QUESTIONS[idx];
+    qProg.textContent='вопрос '+(idx+1)+' / '+QUESTIONS.length+' // отвечай честно, врать тут некому';
+    qAns.innerHTML=''; qText.textContent='';
+    let i=0; const full='> '+Q.q;
+    const t=setInterval(()=>{
+      if(i>=full.length){clearInterval(t); showAnswers(); return;}
+      qText.textContent+=full[i++];
+    },22);
+    function showAnswers(){
+      Q.a.forEach((txt,n)=>{
+        const b=document.createElement('button'); b.textContent='['+n+'] '+txt;
+        b.onclick=()=>{score+=n; idx++; ask();};
+        qAns.appendChild(b);
+      });
+    }
+  }
+  function finish(){
+    qAns.innerHTML=''; qText.textContent=''; qProg.textContent='калибровка завершена';
+    const startLevel=Math.min(7, 1+Math.floor(score/3));
+    const res=document.getElementById('qResult');
+    const verdict=VERDICTS[startLevel];
+    const msg='> анализ ответов: '+score+' / 18 очков\n\n'+verdict+'\n\nстартовый уровень: '+startLevel+' ['+rankFor(startLevel)+']\nдальше растёшь только делом.';
+    res.innerHTML=''; let i=0;
+    const t=setInterval(()=>{
+      if(i>=msg.length){clearInterval(t); document.getElementById('qStart').style.display='block'; return;}
+      res.textContent+=msg[i++];
+    },20);
+    document.getElementById('qStart').onclick=()=>{
+      S={v:1,created:Date.now(),xp:xpAtLevel(startLevel),startLevel,tracks:[],log:[]};
+      save();
+      document.getElementById('quiz').classList.remove('open');
+      renderAll();
+      typeLine('> система запущена. уровень '+startLevel+' ['+rankFor(startLevel)+']','lvl');
+      typeLine('> создай первый трек и начинай копить доказательства.','sys');
+    };
+  }
+  ask();
+}
+
+/* ================= boot ================= */
+function renderAll(){ renderHeader(false); renderTracks(); renderLog(); }
+if(!S){ runQuiz(); } else { renderAll(); }
+setInterval(()=>{ if(S){renderTracks(); renderHeader(true);} }, 60000); // обновлять «отметить»/счётчики при смене дня
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
