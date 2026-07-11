@@ -220,6 +220,7 @@
 
 <script>
 'use strict';
+const APP_V='0.3'; // видно в cfg — по нему проверяем, что телефон получил обновление
 /* ================= storage adapter (фаза 2: заменить на sync с VPS) ================= */
 const store = {
   key: 'lvlup.v1',
@@ -495,7 +496,7 @@ function renderCfg(){
   document.getElementById('cfgInfo').textContent=
     'данные лежат локально на этом устройстве (localStorage). '+
     'xp всего: '+S.xp+' // уровень '+li.level+' // треков: '+S.tracks.length+
-    ' // синхронизация с сервером — фаза 2.';
+    ' // синхронизация с сервером — фаза 2. // версия '+APP_V;
 }
 document.getElementById('btnExport').onclick=()=>{
   const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
@@ -588,5 +589,5 @@ if(!S){ runQuiz(); } else { renderAll(); }
 setInterval(()=>{ if(S){renderTracks(); renderHeader(true);} }, 60000); // обновлять «отметить»/счётчики при смене дня
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg=>reg.update()).catch(()=>{});
 </script>
